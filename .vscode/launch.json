@@ -1,0 +1,47 @@
+// AUTOMATICALLY GENERATED FILE. PLEASE DO NOT MODIFY IT MANUALLY
+//
+// PIO Unified Debugger
+//
+// Documentation: https://docs.platformio.org/page/plus/debugging.html
+// Configuration: https://docs.platformio.org/page/projectconf/section_env_debug.html
+
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "platformio-debug",
+            "request": "launch",
+            "name": "PIO Debug",
+            "executable": "/Users/joker/Documents/Imperial/EIE Year 3/Embedded Systems (EE)/Useless_System_CW2/.pio/build/nucleo_l432kc/firmware.elf",
+            "projectEnvName": "nucleo_l432kc",
+            "toolchainBinDir": "/Users/joker/.platformio/packages/toolchain-gccarmnoneeabi/bin",
+            "internalConsoleOptions": "openOnSessionStart",
+            "svdPath": "/Users/joker/.platformio/platforms/ststm32/misc/svd/STM32L4x2.svd",
+            "preLaunchTask": {
+                "type": "PlatformIO",
+                "task": "Pre-Debug"
+            }
+        },
+        {
+            "type": "platformio-debug",
+            "request": "launch",
+            "name": "PIO Debug (skip Pre-Debug)",
+            "executable": "/Users/joker/Documents/Imperial/EIE Year 3/Embedded Systems (EE)/Useless_System_CW2/.pio/build/nucleo_l432kc/firmware.elf",
+            "projectEnvName": "nucleo_l432kc",
+            "toolchainBinDir": "/Users/joker/.platformio/packages/toolchain-gccarmnoneeabi/bin",
+            "internalConsoleOptions": "openOnSessionStart",
+            "svdPath": "/Users/joker/.platformio/platforms/ststm32/misc/svd/STM32L4x2.svd"
+        },
+        {
+            "type": "platformio-debug",
+            "request": "launch",
+            "name": "PIO Debug (without uploading)",
+            "executable": "/Users/joker/Documents/Imperial/EIE Year 3/Embedded Systems (EE)/Useless_System_CW2/.pio/build/nucleo_l432kc/firmware.elf",
+            "projectEnvName": "nucleo_l432kc",
+            "toolchainBinDir": "/Users/joker/.platformio/packages/toolchain-gccarmnoneeabi/bin",
+            "internalConsoleOptions": "openOnSessionStart",
+            "svdPath": "/Users/joker/.platformio/platforms/ststm32/misc/svd/STM32L4x2.svd",
+            "loadMode": "manual"
+        }
+    ]
+}
