@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <U8g2lib.h>
+#include <STM32FreeRTOS.h>
 #include <map>
 
 //Constants
@@ -8,6 +9,7 @@
   const String notes[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
   volatile int32_t currentStepSize;
   String currentNote;
+  volatile uint8_t keyarray[7];
 //Pin definitions
   //Row select and enable
   const int RA0_PIN = D3;
@@ -91,9 +93,35 @@ void sampleISR() {
   analogWrite(OUTR_PIN, Vout + 128);
 }
 
+void scanKeysTask(void * pvParameters) {
+  uint32_t localCurrentStepSize;
+  const TickType_t xFrequency = 50/portTICK_PERIOD_MS;
+  TickType_t xLastWakeTime= xTaskGetTickCount();
+  while(1){
+    vTaskDelayUntil( &xLastWakeTime, xFrequency );
+    for(int i = 0; i <= 2; i++) {
+      setRow(i);
+      delayMicroseconds(3);
+      uint8_t keys = readCols();
+      keyarray[i] = keys;
+      if(keyarray[0] == 15 && keyarray[1] == 15 && keyarray[2] == 15) {
+        localCurrentStepSize = 0;
+      }
+      for(int j = 0; j < 4; j++) {
+        if(bitRead(keyarray[i], j) == 0) {
+          int position = (4* (i)) + (3 - j);
+          localCurrentStepSize = stepSizes[position];
+          currentNote = notes[position];
+        }
+      }
+      __atomic_store_n(&currentStepSize, localCurrentStepSize, __ATOMIC_RELAXED);
+    }
+  }
+}  
+
 void setup() {
   // put your setup code here, to run once:
-
+  vTaskStartScheduler();
   //Set pin directions
   pinMode(RA0_PIN, OUTPUT);
   pinMode(RA1_PIN, OUTPUT);
@@ -127,14 +155,21 @@ void setup() {
   sampleTimer->setOverflow(22000, HERTZ_FORMAT);
   sampleTimer->attachInterrupt(sampleISR);
   sampleTimer->resume();
+
+  TaskHandle_t scanKeysHandle = NULL;
+  xTaskCreate(
+  scanKeysTask, /* Function that implements the task */
+  "scanKeys", /* Text name for the task */
+  64,      /* Stack size in words, not bytes*/
+  NULL, /* Parameter passed into the task */
+  1,  /* Task priority*/
+  &scanKeysHandle);  /* Pointer to store the task handle*/
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
   static uint32_t next = millis();
   static uint32_t count = 0;
-  uint32_t localCurrentStepSize;
-  uint8_t keyarray[7];
 
   if (millis() > next) {
     next += interval;
@@ -142,26 +177,10 @@ void loop() {
     //Update display
     u8g2.clearBuffer();         // clear the internal memory
     u8g2.setFont(u8g2_font_ncenB08_tr); // choose a suitable font
-    
-    for(int i = 0; i <= 2; i++) {
-      setRow(i);
-      delayMicroseconds(3);
-      uint8_t keys = readCols();
-      keyarray[i] = keys;
-      if(keyarray[0] == 15 && keyarray[1] == 15 && keyarray[2] == 15) {
-        localCurrentStepSize = 0;
-      }
-      for(int j = 0; j < 4; j++) {
-        if(bitRead(keyarray[i], j) == 0) {
-          int position = (4* (i)) + (3 - j);
-          localCurrentStepSize = stepSizes[position];
-          currentNote = notes[position];
-        }
-      }
-    __atomic_store_n(&currentStepSize, localCurrentStepSize, __ATOMIC_RELAXED);
+
       //currentStepSize = 0;
       //currentStepSize = positions.at(keyarray[i]);
-    }
+
     u8g2.setCursor(2,10);
     u8g2.print("Piano!");
     u8g2.setCursor(2,20);
