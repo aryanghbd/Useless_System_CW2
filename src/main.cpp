@@ -10,6 +10,7 @@
   volatile int32_t currentStepSize;
   String currentNote;
   volatile uint8_t keyarray[7];
+  uint32_t localCurrentStepSize;
 //Pin definitions
   //Row select and enable
   const int RA0_PIN = D3;
@@ -94,34 +95,59 @@ void sampleISR() {
 }
 
 void scanKeysTask(void * pvParameters) {
-  uint32_t localCurrentStepSize;
   const TickType_t xFrequency = 50/portTICK_PERIOD_MS;
   TickType_t xLastWakeTime= xTaskGetTickCount();
   while(1){
     vTaskDelayUntil( &xLastWakeTime, xFrequency );
     for(int i = 0; i <= 2; i++) {
-      setRow(i);
-      delayMicroseconds(3);
-      uint8_t keys = readCols();
-      keyarray[i] = keys;
-      if(keyarray[0] == 15 && keyarray[1] == 15 && keyarray[2] == 15) {
-        localCurrentStepSize = 0;
+    setRow(i);
+    delayMicroseconds(3);
+    uint8_t keys = readCols();
+    keyarray[i] = keys;
+    if(keyarray[0] == 15 && keyarray[1] == 15 && keyarray[2] == 15) {
+      localCurrentStepSize = 0;
+    }
+    for(int j = 0; j < 4; j++) {
+      if(bitRead(keyarray[i], j) == 0) {
+        int position = (4* (i)) + (3 - j);
+        localCurrentStepSize = stepSizes[position];
+        currentNote = notes[position];
       }
-      for(int j = 0; j < 4; j++) {
-        if(bitRead(keyarray[i], j) == 0) {
-          int position = (4* (i)) + (3 - j);
-          localCurrentStepSize = stepSizes[position];
-          currentNote = notes[position];
-        }
-      }
-      __atomic_store_n(&currentStepSize, localCurrentStepSize, __ATOMIC_RELAXED);
+    }
+    __atomic_store_n(&currentStepSize, localCurrentStepSize, __ATOMIC_RELAXED);
+    //currentStepSize = 0;
+    //currentStepSize = positions.at(keyarray[i]);
     }
   }
-}  
+}
+
+void displayUpdateTask(void * pvParameters){
+  const TickType_t xFrequency = 100/portTICK_PERIOD_MS;
+  TickType_t xLastWakeTime= xTaskGetTickCount();
+  while(1) {
+    vTaskDelayUntil( &xLastWakeTime, xFrequency );
+  //Update display
+  u8g2.clearBuffer();         // clear the internal memory
+  u8g2.setFont(u8g2_font_ncenB08_tr); // choose a suitable font
+
+  u8g2.setCursor(2,10);
+  u8g2.print("Piano!");
+  u8g2.setCursor(2,20);
+  u8g2.print(keyarray[0], HEX);
+  u8g2.print(keyarray[1], HEX);
+  u8g2.print(keyarray[2], HEX);
+  u8g2.setCursor(2,30);
+  u8g2.print(currentStepSize);
+  u8g2.sendBuffer();          // transfer internal memory to the display
+
+  //Toggle LED
+  digitalToggle(LED_BUILTIN);
+  }
+}
 
 void setup() {
   // put your setup code here, to run once:
-  vTaskStartScheduler();
+
   //Set pin directions
   pinMode(RA0_PIN, OUTPUT);
   pinMode(RA1_PIN, OUTPUT);
@@ -158,40 +184,26 @@ void setup() {
 
   TaskHandle_t scanKeysHandle = NULL;
   xTaskCreate(
-  scanKeysTask, /* Function that implements the task */
-  "scanKeys", /* Text name for the task */
+  scanKeysTask,/* Function that implements the task */
+  "scanKeys",/* Text name for the task */
   64,      /* Stack size in words, not bytes*/
-  NULL, /* Parameter passed into the task */
-  1,  /* Task priority*/
+  NULL,/* Parameter passed into the task */
+  2,/* Task priority*/
   &scanKeysHandle);  /* Pointer to store the task handle*/
+
+  TaskHandle_t displayUpdateHandle = NULL;
+  xTaskCreate(
+  displayUpdateTask,/* Function that implements the task */
+  "displayupdate",/* Text name for the task */
+  256,      /* Stack size in words, not bytes*/
+  NULL,/* Parameter passed into the task */
+  1,/* Task priority*/
+  &displayUpdateHandle);  /* Pointer to store the task handle*/
+
+  vTaskStartScheduler();
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
-  static uint32_t next = millis();
-  static uint32_t count = 0;
 
-  if (millis() > next) {
-    next += interval;
-
-    //Update display
-    u8g2.clearBuffer();         // clear the internal memory
-    u8g2.setFont(u8g2_font_ncenB08_tr); // choose a suitable font
-
-      //currentStepSize = 0;
-      //currentStepSize = positions.at(keyarray[i]);
-
-    u8g2.setCursor(2,10);
-    u8g2.print("Piano!");
-    u8g2.setCursor(2,20);
-    u8g2.print(keyarray[0], HEX);
-    u8g2.print(keyarray[1], HEX);
-    u8g2.print(keyarray[2], HEX);
-    u8g2.setCursor(2,30);
-    u8g2.print(currentStepSize);
-    u8g2.sendBuffer();          // transfer internal memory to the display
-
-    //Toggle LED
-    digitalToggle(LED_BUILTIN);
-  }
 }
