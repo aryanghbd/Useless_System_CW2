@@ -3,3 +3,9 @@
 .vscode/c_cpp_properties.json
 .vscode/launch.json
 .vscode/ipch
+.vscode/c_cpp_properties.json
+.gitignore
+.vscode/launch.json
+.vscode/settings.json
+.pio/build/project.checksum
+.pio/build/nucleo_l432kc/idedata.json
