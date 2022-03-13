@@ -2,6 +2,10 @@
 #include <U8g2lib.h>
 #include <STM32FreeRTOS.h>
 #include <map>
+#include <semphr.h>
+#include <atomic>
+#include <iostream>
+#include "knob.cpp"
 
 //Constants
   const uint32_t interval = 100; //Display update interval
@@ -11,6 +15,8 @@
   String currentNote;
   volatile uint8_t keyarray[7];
   uint32_t localCurrentStepSize;
+  SemaphoreHandle_t keyArrayMutex;
+  Knob knob3;
 //Pin definitions
   //Row select and enable
   const int RA0_PIN = D3;
@@ -91,32 +97,49 @@ void sampleISR() {
   static int32_t phaseAcc = 0;
   phaseAcc += currentStepSize;
   int32_t Vout = phaseAcc >> 24;
+  Vout = Vout >> (8 - knob3.getRotation()/2);
   analogWrite(OUTR_PIN, Vout + 128);
 }
 
 void scanKeysTask(void * pvParameters) {
-  const TickType_t xFrequency = 50/portTICK_PERIOD_MS;
+  const TickType_t xFrequency = 20/portTICK_PERIOD_MS;
   TickType_t xLastWakeTime= xTaskGetTickCount();
   while(1){
     vTaskDelayUntil( &xLastWakeTime, xFrequency );
-    for(int i = 0; i <= 2; i++) {
-    setRow(i);
-    delayMicroseconds(3);
-    uint8_t keys = readCols();
-    keyarray[i] = keys;
-    if(keyarray[0] == 15 && keyarray[1] == 15 && keyarray[2] == 15) {
-      localCurrentStepSize = 0;
-    }
-    for(int j = 0; j < 4; j++) {
-      if(bitRead(keyarray[i], j) == 0) {
-        int position = (4* (i)) + (3 - j);
-        localCurrentStepSize = stepSizes[position];
-        currentNote = notes[position];
+
+    for(int i = 0; i <= 3; i++) {
+      setRow(i);
+      delayMicroseconds(3);
+      uint8_t keys = readCols();
+      xSemaphoreTake(keyArrayMutex, portMAX_DELAY);
+      //Access keyArray here    
+
+      keyarray[i] = keys;
+      
+      if(keyarray[0] == 15 && keyarray[1] == 15 && keyarray[2] == 15) {
+        localCurrentStepSize = 0;
       }
-    }
-    __atomic_store_n(&currentStepSize, localCurrentStepSize, __ATOMIC_RELAXED);
-    //currentStepSize = 0;
-    //currentStepSize = positions.at(keyarray[i]);
+
+      // for key presses
+      for(int j = 0; j < 4; j++) {
+        if(bitRead(keyarray[i], j) == 0 && i<=2) {
+          int position = (4* (i)) + (3 - j);
+          localCurrentStepSize = stepSizes[position];
+          currentNote = notes[position];        
+        }
+      }
+
+      // knob turns
+      if(i==3){
+        knob3.setCurrBA(keyarray[3] & 0b11);
+        knob3.updateRotation();
+      }    
+
+      xSemaphoreGive(keyArrayMutex);
+      
+      __atomic_store_n(&currentStepSize, localCurrentStepSize, __ATOMIC_RELAXED);
+      //currentStepSize = 0;
+      //currentStepSize = positions.at(keyarray[i]);
     }
   }
 }
@@ -137,7 +160,7 @@ void displayUpdateTask(void * pvParameters){
   u8g2.print(keyarray[1], HEX);
   u8g2.print(keyarray[2], HEX);
   u8g2.setCursor(2,30);
-  u8g2.print(currentStepSize);
+  u8g2.print(knob3.getRotation());
   u8g2.sendBuffer();          // transfer internal memory to the display
 
   //Toggle LED
@@ -200,6 +223,7 @@ void setup() {
   1,/* Task priority*/
   &displayUpdateHandle);  /* Pointer to store the task handle*/
 
+  keyArrayMutex = xSemaphoreCreateMutex();
   vTaskStartScheduler();
 }
 
