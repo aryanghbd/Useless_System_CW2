@@ -10,6 +10,7 @@
             "includePath": [
                 "c:/Users/Ajinizer/OneDrive/Desktop/Useless_System_CW2/include",
                 "c:/Users/Ajinizer/OneDrive/Desktop/Useless_System_CW2/src",
+                "c:/Users/Ajinizer/OneDrive/Desktop/Useless_System_CW2/lib/ES_CAN",
                 "c:/Users/Ajinizer/OneDrive/Desktop/Useless_System_CW2/.pio/libdeps/nucleo_l432kc/STM32duino FreeRTOS/src",
                 "c:/Users/Ajinizer/OneDrive/Desktop/Useless_System_CW2/.pio/libdeps/nucleo_l432kc/U8g2/src",
                 "C:/Users/Ajinizer/.platformio/packages/framework-arduinoststm32/libraries/Wire/src",
@@ -37,7 +38,6 @@
                 "C:/Users/Ajinizer/.platformio/packages/framework-cmsis/CMSIS/DSP/PrivateInclude",
                 "C:/Users/Ajinizer/.platformio/packages/framework-arduinoststm32/cores/arduino",
                 "C:/Users/Ajinizer/.platformio/packages/framework-arduinoststm32/variants/STM32L4xx/L432K(B-C)U_L442KCU",
-                "c:/Users/Ajinizer/OneDrive/Desktop/Useless_System_CW2/lib/ES_CAN",
                 "C:/Users/Ajinizer/.platformio/packages/framework-arduinoststm32/libraries/CMSIS_DSP/src",
                 "C:/Users/Ajinizer/.platformio/packages/framework-arduinoststm32/libraries/EEPROM/src",
                 "C:/Users/Ajinizer/.platformio/packages/framework-arduinoststm32/libraries/IWatchdog/src",
@@ -54,6 +54,7 @@
                 "path": [
                     "c:/Users/Ajinizer/OneDrive/Desktop/Useless_System_CW2/include",
                     "c:/Users/Ajinizer/OneDrive/Desktop/Useless_System_CW2/src",
+                    "c:/Users/Ajinizer/OneDrive/Desktop/Useless_System_CW2/lib/ES_CAN",
                     "c:/Users/Ajinizer/OneDrive/Desktop/Useless_System_CW2/.pio/libdeps/nucleo_l432kc/STM32duino FreeRTOS/src",
                     "c:/Users/Ajinizer/OneDrive/Desktop/Useless_System_CW2/.pio/libdeps/nucleo_l432kc/U8g2/src",
                     "C:/Users/Ajinizer/.platformio/packages/framework-arduinoststm32/libraries/Wire/src",
@@ -81,7 +82,6 @@
                     "C:/Users/Ajinizer/.platformio/packages/framework-cmsis/CMSIS/DSP/PrivateInclude",
                     "C:/Users/Ajinizer/.platformio/packages/framework-arduinoststm32/cores/arduino",
                     "C:/Users/Ajinizer/.platformio/packages/framework-arduinoststm32/variants/STM32L4xx/L432K(B-C)U_L442KCU",
-                    "c:/Users/Ajinizer/OneDrive/Desktop/Useless_System_CW2/lib/ES_CAN",
                     "C:/Users/Ajinizer/.platformio/packages/framework-arduinoststm32/libraries/CMSIS_DSP/src",
                     "C:/Users/Ajinizer/.platformio/packages/framework-arduinoststm32/libraries/EEPROM/src",
                     "C:/Users/Ajinizer/.platformio/packages/framework-arduinoststm32/libraries/IWatchdog/src",

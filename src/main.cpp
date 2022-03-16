@@ -6,6 +6,7 @@
 #include <atomic>
 #include <iostream>
 #include "knob.cpp"
+#include <ES_CAN.h>
 
 //Constants
   const uint32_t interval = 100; //Display update interval
@@ -104,6 +105,7 @@ void sampleISR() {
 void scanKeysTask(void * pvParameters) {
   const TickType_t xFrequency = 20/portTICK_PERIOD_MS;
   TickType_t xLastWakeTime= xTaskGetTickCount();
+  uint8_t TX_Message[8] = {0};
   while(1){
     vTaskDelayUntil( &xLastWakeTime, xFrequency );
 
@@ -125,7 +127,8 @@ void scanKeysTask(void * pvParameters) {
         if(bitRead(keyarray[i], j) == 0 && i<=2) {
           int position = (4* (i)) + (3 - j);
           localCurrentStepSize = stepSizes[position];
-          currentNote = notes[position];        
+          currentNote = notes[position];
+          TX_Message[2] = position;
         }
       }
 
@@ -135,7 +138,13 @@ void scanKeysTask(void * pvParameters) {
         knob3.updateRotation();
       }    
 
+      TX_Message[1] = knob3.getRotation(); // NOT 100% SURE IF THIS IS THE KNOB FOR OCTAVE CONTROL
+      if(localCurrentStepSize == 0){TX_Message[0] = 'R';}
+      else{TX_Message[0] = 'P';}
+
       xSemaphoreGive(keyArrayMutex);
+
+      CAN_TX(0x123, TX_Message);
       
       __atomic_store_n(&currentStepSize, localCurrentStepSize, __ATOMIC_RELAXED);
       //currentStepSize = 0;
@@ -147,11 +156,17 @@ void scanKeysTask(void * pvParameters) {
 void displayUpdateTask(void * pvParameters){
   const TickType_t xFrequency = 100/portTICK_PERIOD_MS;
   TickType_t xLastWakeTime= xTaskGetTickCount();
+  uint32_t ID;
+  uint8_t RX_Message[8]={0};
+
   while(1) {
     vTaskDelayUntil( &xLastWakeTime, xFrequency );
   //Update display
   u8g2.clearBuffer();         // clear the internal memory
   u8g2.setFont(u8g2_font_ncenB08_tr); // choose a suitable font
+
+  while (CAN_CheckRXLevel())
+    CAN_RX(ID, RX_Message);
 
   u8g2.setCursor(2,10);
   u8g2.print("Piano!");
@@ -161,6 +176,10 @@ void displayUpdateTask(void * pvParameters){
   u8g2.print(keyarray[2], HEX);
   u8g2.setCursor(2,30);
   u8g2.print(knob3.getRotation());
+  u8g2.setCursor(66,30);
+  u8g2.print((char) RX_Message[0]);
+  u8g2.print(RX_Message[1]);
+  u8g2.print(RX_Message[2]);
   u8g2.sendBuffer();          // transfer internal memory to the display
 
   //Toggle LED
@@ -224,6 +243,11 @@ void setup() {
   &displayUpdateHandle);  /* Pointer to store the task handle*/
 
   keyArrayMutex = xSemaphoreCreateMutex();
+
+  CAN_Init(true);
+  setCANFilter(0x123,0x7ff);
+  CAN_Start();
+
   vTaskStartScheduler();
 }
 
