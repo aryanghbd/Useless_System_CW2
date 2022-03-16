@@ -20,6 +20,8 @@
   Knob knob3;
   QueueHandle_t msgInQ;
   uint8_t RX_Message[8]={0};
+  QueueHandle_t msgOutQ;
+  SemaphoreHandle_t CAN_TX_Semaphore;
 //Pin definitions
   //Row select and enable
   const int RA0_PIN = D3;
@@ -146,8 +148,9 @@ void scanKeysTask(void * pvParameters) {
 
       xSemaphoreGive(keyArrayMutex);
 
-      CAN_TX(0x123, TX_Message);
-      
+      //CAN_TX(0x123, TX_Message);
+      xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);
+
       __atomic_store_n(&currentStepSize, localCurrentStepSize, __ATOMIC_RELAXED);
       //currentStepSize = 0;
       //currentStepSize = positions.at(keyarray[i]);
@@ -195,10 +198,23 @@ CAN_RX(ID, RX_Message_ISR);
 xQueueSendFromISR(msgInQ, RX_Message_ISR, NULL);
 }
 
-void decodeTask(void * pvParameters){
+void decodeTask(void * pvParameters){ //7c AWAITING COMPLETION
   while(1){
     xQueueReceive(msgInQ, RX_Message, portMAX_DELAY);
   }
+}
+
+void CAN_TX_Task (void * pvParameters) {
+uint8_t msgOut[8];
+while (1) {
+  xQueueReceive(msgOutQ, msgOut, portMAX_DELAY);
+  xSemaphoreTake(CAN_TX_Semaphore, portMAX_DELAY);
+  CAN_TX(0x123, msgOut);
+  }
+}
+
+void CAN_TX_ISR (void) {
+xSemaphoreGiveFromISR(CAN_TX_Semaphore, NULL);
 }
 
 void setup() {
@@ -259,18 +275,31 @@ void setup() {
   TaskHandle_t decodeHandle = NULL;
   xTaskCreate(
   decodeTask,/* Function that implements the task */
-  "displayupdate",/* Text name for the task */
+  "decode",/* Text name for the task */
   256,      /* Stack size in words, not bytes*/
   NULL,/* Parameter passed into the task */
   1,/* Task priority*/
   &decodeHandle);  /* Pointer to store the task handle*/
 
+  TaskHandle_t CAN_TX_Handle = NULL;
+  xTaskCreate(
+  CAN_TX_Task,/* Function that implements the task */
+  "CAN_TX",/* Text name for the task */
+  256,      /* Stack size in words, not bytes*/
+  NULL,/* Parameter passed into the task */
+  1,/* Task priority*/
+  &CAN_TX_Handle);  /* Pointer to store the task handle*/
+
   keyArrayMutex = xSemaphoreCreateMutex();
 
   msgInQ = xQueueCreate(36,8);
+  msgOutQ = xQueueCreate(36,8);
+
+  CAN_TX_Semaphore = xSemaphoreCreateCounting(3,3);
 
   CAN_Init(true); //set false for communication between piano boards
   CAN_RegisterRX_ISR(CAN_RX_ISR);
+  CAN_RegisterTX_ISR(CAN_TX_ISR);
   setCANFilter(0x123,0x7ff);
   CAN_Start();
 
