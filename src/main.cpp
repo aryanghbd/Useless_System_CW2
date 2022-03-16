@@ -18,6 +18,8 @@
   uint32_t localCurrentStepSize;
   SemaphoreHandle_t keyArrayMutex;
   Knob knob3;
+  QueueHandle_t msgInQ;
+  uint8_t RX_Message[8]={0};
 //Pin definitions
   //Row select and enable
   const int RA0_PIN = D3;
@@ -157,7 +159,6 @@ void displayUpdateTask(void * pvParameters){
   const TickType_t xFrequency = 100/portTICK_PERIOD_MS;
   TickType_t xLastWakeTime= xTaskGetTickCount();
   uint32_t ID;
-  uint8_t RX_Message[8]={0};
 
   while(1) {
     vTaskDelayUntil( &xLastWakeTime, xFrequency );
@@ -165,8 +166,8 @@ void displayUpdateTask(void * pvParameters){
   u8g2.clearBuffer();         // clear the internal memory
   u8g2.setFont(u8g2_font_ncenB08_tr); // choose a suitable font
 
-  while (CAN_CheckRXLevel())
-    CAN_RX(ID, RX_Message);
+  //while (CAN_CheckRXLevel())
+    //CAN_RX(ID, RX_Message);
 
   u8g2.setCursor(2,10);
   u8g2.print("Piano!");
@@ -184,6 +185,19 @@ void displayUpdateTask(void * pvParameters){
 
   //Toggle LED
   digitalToggle(LED_BUILTIN);
+  }
+}
+
+void CAN_RX_ISR (void) {
+uint8_t RX_Message_ISR[8];
+uint32_t ID;
+CAN_RX(ID, RX_Message_ISR);
+xQueueSendFromISR(msgInQ, RX_Message_ISR, NULL);
+}
+
+void decodeTask(void * pvParameters){
+  while(1){
+    xQueueReceive(msgInQ, RX_Message, portMAX_DELAY);
   }
 }
 
@@ -242,9 +256,21 @@ void setup() {
   1,/* Task priority*/
   &displayUpdateHandle);  /* Pointer to store the task handle*/
 
+  TaskHandle_t decodeHandle = NULL;
+  xTaskCreate(
+  decodeTask,/* Function that implements the task */
+  "displayupdate",/* Text name for the task */
+  256,      /* Stack size in words, not bytes*/
+  NULL,/* Parameter passed into the task */
+  1,/* Task priority*/
+  &decodeHandle);  /* Pointer to store the task handle*/
+
   keyArrayMutex = xSemaphoreCreateMutex();
 
-  CAN_Init(true);
+  msgInQ = xQueueCreate(36,8);
+
+  CAN_Init(true); //set false for communication between piano boards
+  CAN_RegisterRX_ISR(CAN_RX_ISR);
   setCANFilter(0x123,0x7ff);
   CAN_Start();
 
