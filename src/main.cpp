@@ -15,12 +15,12 @@
   volatile int32_t currentStepSize;
   String currentNote;
   volatile uint8_t keyarray[7];
-  uint32_t localCurrentStepSize;
   SemaphoreHandle_t keyArrayMutex;
   Knob knob3;
   QueueHandle_t msgInQ;
   uint8_t RX_Message[8]={0};
   QueueHandle_t msgOutQ;
+  SemaphoreHandle_t RXMutex;
   SemaphoreHandle_t CAN_TX_Semaphore;
 //Pin definitions
   //Row select and enable
@@ -109,6 +109,7 @@ void sampleISR() {
 void scanKeysTask(void * pvParameters) {
   const TickType_t xFrequency = 20/portTICK_PERIOD_MS;
   TickType_t xLastWakeTime= xTaskGetTickCount();
+  uint32_t localCurrentStepSize;
   uint8_t TX_Message[8] = {0};
   while(1){
     vTaskDelayUntil( &xLastWakeTime, xFrequency );
@@ -142,7 +143,7 @@ void scanKeysTask(void * pvParameters) {
         knob3.updateRotation();
       }    
 
-      TX_Message[1] = knob3.getRotation(); // NOT 100% SURE IF THIS IS THE KNOB FOR OCTAVE CONTROL
+      TX_Message[1] = 4; // NOT SURE WHAT THE OCTAVE IS
       if(localCurrentStepSize == 0){TX_Message[0] = 'R';}
       else{TX_Message[0] = 'P';}
 
@@ -181,9 +182,11 @@ void displayUpdateTask(void * pvParameters){
   u8g2.setCursor(2,30);
   u8g2.print(knob3.getRotation());
   u8g2.setCursor(66,30);
+  xSemaphoreTake(RXMutex, portMAX_DELAY);
   u8g2.print((char) RX_Message[0]);
   u8g2.print(RX_Message[1]);
   u8g2.print(RX_Message[2]);
+  xSemaphoreGive(RXMutex);
   u8g2.sendBuffer();          // transfer internal memory to the display
 
   //Toggle LED
@@ -198,9 +201,21 @@ CAN_RX(ID, RX_Message_ISR);
 xQueueSendFromISR(msgInQ, RX_Message_ISR, NULL);
 }
 
-void decodeTask(void * pvParameters){ //7c AWAITING COMPLETION
+void decodeTask(void * pvParameters){ 
+  uint8_t temp[8] = {0};
   while(1){
-    xQueueReceive(msgInQ, RX_Message, portMAX_DELAY);
+    xQueueReceive(msgInQ, temp, portMAX_DELAY);
+    if (temp[0] == 'R'){
+      __atomic_store_n(&currentStepSize, 0, __ATOMIC_RELAXED);
+    }
+    else if (temp[0] == 'P'){
+      uint32_t localstepsize = stepSizes[temp[2]];
+      int shift = temp[1] - 4;
+      __atomic_store_n(&currentStepSize, localstepsize << shift, __ATOMIC_RELAXED);
+    }
+    xSemaphoreTake(RXMutex, portMAX_DELAY);
+    std::copy(temp,temp+8,RX_Message);
+    xSemaphoreGive(RXMutex);
   }
 }
 
@@ -260,7 +275,7 @@ void setup() {
   "scanKeys",/* Text name for the task */
   64,      /* Stack size in words, not bytes*/
   NULL,/* Parameter passed into the task */
-  2,/* Task priority*/
+  4,/* Task priority*/
   &scanKeysHandle);  /* Pointer to store the task handle*/
 
   TaskHandle_t displayUpdateHandle = NULL;
@@ -278,7 +293,7 @@ void setup() {
   "decode",/* Text name for the task */
   256,      /* Stack size in words, not bytes*/
   NULL,/* Parameter passed into the task */
-  1,/* Task priority*/
+  3,/* Task priority*/
   &decodeHandle);  /* Pointer to store the task handle*/
 
   TaskHandle_t CAN_TX_Handle = NULL;
@@ -287,10 +302,11 @@ void setup() {
   "CAN_TX",/* Text name for the task */
   256,      /* Stack size in words, not bytes*/
   NULL,/* Parameter passed into the task */
-  1,/* Task priority*/
+  2,/* Task priority*/
   &CAN_TX_Handle);  /* Pointer to store the task handle*/
 
   keyArrayMutex = xSemaphoreCreateMutex();
+  RXMutex = xSemaphoreCreateMutex();
 
   msgInQ = xQueueCreate(36,8);
   msgOutQ = xQueueCreate(36,8);
