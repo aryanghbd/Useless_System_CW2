@@ -19,6 +19,7 @@
   SemaphoreHandle_t keyArrayMutex;
   Knob volumeKnob(1, 0, 16, 8);
   Knob octaveKnob(1, 0, 8, 4);
+  Knob senderKnob(0,0,0,0);
   Notes notes;
   std::vector<uint32_t> keysPressed;
   QueueHandle_t msgInQ;
@@ -119,7 +120,7 @@ void scanKeysTask(void * pvParameters) {
     vTaskDelayUntil( &xLastWakeTime, xFrequency );
 
     std::vector<uint32_t> keysPressed;
-    for(int i = 0; i <= 5; i++) {
+    for(int i = 0; i <= 6; i++) {
       setRow(i);
       delayMicroseconds(3);
       uint8_t keys = readCols();
@@ -127,10 +128,6 @@ void scanKeysTask(void * pvParameters) {
       //Access keyArray here    
 
       keyarray[i] = keys;
-      
-      if(keyarray[0] == 15 && keyarray[1] == 15 && keyarray[2] == 15) {
-        localCurrentStepSize = 0;
-      }
 
       // for key presses
       for(int j = 0; j < 4; j++) {
@@ -159,14 +156,16 @@ void scanKeysTask(void * pvParameters) {
       }    
 
       // knob pressed & joystick
-      if (i==5) {
-        octaveKnob.setPressed((keyarray[5] >> 2) & 0b1);
+      if (i==6) {
+        senderKnob.setPressed((keyarray[6] >> 3) & 0b1);
       }
 
 
       TX_Message[1] = octaveKnob.getRotation();
-      if(localCurrentStepSize == 0){TX_Message[0] = 'R';}
-      else{TX_Message[0] = 'P';}
+      if(localCurrentStepSize == 0)
+        {TX_Message[0] = 'R';}
+      else
+        {TX_Message[0] = 'P';}
 
       xSemaphoreGive(keyArrayMutex);
 
@@ -196,18 +195,23 @@ void displayUpdateTask(void * pvParameters){
 
   u8g2.setCursor(2,10);
   u8g2.print("Piano!");
-  u8g2.setCursor(2,20);
+  u8g2.setCursor(40,10);
   u8g2.print(keyarray[0], HEX);
   u8g2.print(keyarray[1], HEX);
   u8g2.print(keyarray[2], HEX);
+  u8g2.setCursor(2,20);
+  u8g2.print("Sender");
   u8g2.setCursor(2,30);
-  u8g2.print(knob3.getRotation());
-  u8g2.setCursor(66,30);
-  xSemaphoreTake(RXMutex, portMAX_DELAY);
-  u8g2.print((char) RX_Message[0]);
-  u8g2.print(RX_Message[1]);
-  u8g2.print(RX_Message[2]);
-  xSemaphoreGive(RXMutex);
+  u8g2.print(senderKnob.getToggledStr());
+  u8g2.setCursor(35,20);
+  u8g2.setCursor(60,20);
+  u8g2.print("Volume");
+  u8g2.setCursor(60,30);
+  u8g2.print(volumeKnob.getRotation());
+  u8g2.setCursor(90,20);
+  u8g2.print("Octave");
+  u8g2.setCursor(90,30);
+  u8g2.print(octaveKnob.getRotation());
   u8g2.sendBuffer();          // transfer internal memory to the display
 
   //Toggle LED
