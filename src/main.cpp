@@ -119,6 +119,7 @@ void scanKeysTask(void * pvParameters) {
     vTaskDelayUntil( &xLastWakeTime, xFrequency );
 
     std::vector<uint32_t> keysPressed;
+    for(int i = 0; i <= 5; i++) {
       setRow(i);
       delayMicroseconds(3);
       uint8_t keys = readCols();
