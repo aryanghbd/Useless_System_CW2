@@ -11,8 +11,8 @@ class Knob {
         uint8_t preBAcurrBA;
         int previousRotation;
         int rotationIncrement;
-        bool isPressed;
-        bool isToggled;
+        std::atomic<bool> isPressed;
+        std::atomic<bool> isToggled;
 
         void updateRotation() {
             if (this->preBAcurrBA == 0b0011 
@@ -80,7 +80,7 @@ class Knob {
             return this->knobRotation;
         }
 
-        void setPressed(int b) {
+        void setPressed(uint8_t b) {
             if (this->isPressed == false && b == 0) {
                 this->isToggled = !this->isToggled;
             }
