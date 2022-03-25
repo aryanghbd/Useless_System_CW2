@@ -8,6 +8,8 @@
 #include "knob.cpp"
 #include "notes.cpp"
 #include <ES_CAN.h>
+#include <vector>
+#include <numeric>
 
 //Constants
   const uint32_t interval = 100; //Display update interval
@@ -20,6 +22,7 @@
   Knob volumeKnob(1, 0, 16, 8);
   Knob octaveKnob(1, 0, 8, 4);
   Notes notes;
+  std::vector<uint32_t> keysPressed;
   QueueHandle_t msgInQ;
   uint8_t RX_Message[8]={0};
   QueueHandle_t msgOutQ;
@@ -117,7 +120,7 @@ void scanKeysTask(void * pvParameters) {
   while(1){
     vTaskDelayUntil( &xLastWakeTime, xFrequency );
 
-    for(int i = 0; i <= 3; i++) {
+    std::vector<uint32_t> keysPressed;
       setRow(i);
       delayMicroseconds(3);
       uint8_t keys = readCols();
@@ -135,8 +138,16 @@ void scanKeysTask(void * pvParameters) {
         if(bitRead(keyarray[i], j) == 0 && i<=2) {
           int position = (4* (i)) + (3 - j);
           currentNote = notes.getNote(position);
+          keysPressed.push_back(notes.getStep(octaveKnob.getRotation(), position));
           TX_Message[2] = position;
         }
+      }
+      
+      if (keysPressed.size() > 0) {
+        localCurrentStepSize = std::accumulate(keysPressed.begin(), keysPressed.end(), 0) / keysPressed.size();
+      }
+      else {
+        localCurrentStepSize = 0;
       }
 
       // knob turns
