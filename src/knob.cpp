@@ -1,7 +1,7 @@
 #include <atomic>
 
 class Knob {
-    public:
+    private:
         std::atomic<int> knobRotation;
         int rotationMin;
         int rotationMax;
@@ -10,7 +10,9 @@ class Knob {
         uint8_t preBAcurrBA;
         int previousRotation;
         int rotationIncrement;
+        bool isPressed;
 
+    public:
         Knob(int rotationIncrement=1,
             int rotationMin=0,
             int rotationMax=16,
@@ -19,12 +21,13 @@ class Knob {
                 this->rotationMin = rotationMin;
                 this->rotationMax = rotationMax;
 
-                this->knobRotation = 0;
+                this->knobRotation = knobRotation;
                 this->preBA = 0;
                 this->currBA = 0;
                 this->preBAcurrBA = 0;
                 this->previousRotation = 0;
-                this->rotationIncrement = 1;
+                this->rotationIncrement = rotationIncrement;
+                this->isPressed = false;
         }
 
         void addKnobRotation (int n) {
@@ -70,6 +73,14 @@ class Knob {
     
         int getRotation() {
             return this->knobRotation;
+        }
+
+        void setPressed(int b) {
+            this->isPressed = (b == 1);
+        }
+
+        bool getPressed() {
+            return this->isPressed;
         }
 };
 
