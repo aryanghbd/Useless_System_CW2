@@ -17,6 +17,8 @@
   String currentNote;
   volatile uint8_t keyarray[7];
   SemaphoreHandle_t keyArrayMutex;
+  Knob volumeKnob(1, 0, 16, 8);
+  Knob octaveKnob(1, 0, 8, 4);
   Notes notes;
   QueueHandle_t msgInQ;
   uint8_t RX_Message[8]={0};
@@ -103,7 +105,7 @@ void sampleISR() {
   static int32_t phaseAcc = 0;
   phaseAcc += currentStepSize;
   int32_t Vout = phaseAcc >> 24;
-  Vout = Vout >> (8 - knob3.getRotation()/2);
+  Vout = Vout >> (8 - volumeKnob.getRotation()/2);
   analogWrite(OUTR_PIN, Vout + 128);
 }
 
@@ -139,11 +141,20 @@ void scanKeysTask(void * pvParameters) {
 
       // knob turns
       if(i==3){
-        knob3.setCurrBA(keyarray[3] & 0b11);
-        knob3.updateRotation();
+        volumeKnob.setCurrBA(keyarray[3] & 0b11);
+        volumeKnob.updateRotation();
+
+        octaveKnob.setCurrBA((keyarray[3] >> 2) & 0b11);
+        octaveKnob.updateRotation();
       }    
 
-      TX_Message[1] = 4; // NOT SURE WHAT THE OCTAVE IS
+      // knob pressed & joystick
+      if (i==5) {
+        octaveKnob.setPressed((keyarray[5] >> 2) & 0b1);
+      }
+
+
+      TX_Message[1] = octaveKnob.getRotation();
       if(localCurrentStepSize == 0){TX_Message[0] = 'R';}
       else{TX_Message[0] = 'P';}
 
