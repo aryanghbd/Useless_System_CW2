@@ -1,4 +1,5 @@
 #include <atomic>
+#include <Arduino.h>
 
 class Knob {
     private:
@@ -11,41 +12,7 @@ class Knob {
         int previousRotation;
         int rotationIncrement;
         bool isPressed;
-
-    public:
-        Knob(int rotationIncrement=1,
-            int rotationMin=0,
-            int rotationMax=16,
-            int knobRotation = 0)
-            {
-                this->rotationMin = rotationMin;
-                this->rotationMax = rotationMax;
-
-                this->knobRotation = knobRotation;
-                this->preBA = 0;
-                this->currBA = 0;
-                this->preBAcurrBA = 0;
-                this->previousRotation = 0;
-                this->rotationIncrement = rotationIncrement;
-                this->isPressed = false;
-        }
-
-        void addKnobRotation (int n) {
-            if (this->knobRotation + n >= rotationMax) {
-                this->knobRotation = rotationMax;
-            } else if (this->knobRotation + n <= rotationMin) {
-                this->knobRotation = rotationMin;
-            } else {
-                this->knobRotation += n;
-            }
-            this->previousRotation = n;
-        }
-
-        void setCurrBA (uint8_t ba) {
-            this->preBA = this->currBA;
-            this->currBA = ba;
-            this->preBAcurrBA = (this->preBA << 2) + ba;
-        }
+        bool isToggled;
 
         void updateRotation() {
             if (this->preBAcurrBA == 0b0011 
@@ -70,17 +37,69 @@ class Knob {
                         this->addKnobRotation(this->rotationIncrement); 
                     }
         }
+
+    public:
+        Knob(int rotationIncrement=1,
+            int rotationMin=0,
+            int rotationMax=16,
+            int knobRotation = 0,
+            bool initiallyToggled = false)
+            {
+                this->rotationMin = rotationMin;
+                this->rotationMax = rotationMax;
+
+                this->knobRotation = knobRotation;
+                this->preBA = 0;
+                this->currBA = 0;
+                this->preBAcurrBA = 0;
+                this->previousRotation = 0;
+                this->rotationIncrement = rotationIncrement;
+                this->isPressed = false;
+                this->isToggled = initiallyToggled;
+        }
+
+        void addKnobRotation (int n) {
+            if (this->knobRotation + n >= rotationMax) {
+                this->knobRotation = rotationMax;
+            } else if (this->knobRotation + n <= rotationMin) {
+                this->knobRotation = rotationMin;
+            } else {
+                this->knobRotation += n;
+            }
+            this->previousRotation = n;
+        }
+
+        void updateRotation (uint8_t ba) {
+            this->preBA = this->currBA;
+            this->currBA = ba;
+            this->preBAcurrBA = (this->preBA << 2) + ba;
+            this->updateRotation();
+        }
     
         int getRotation() {
             return this->knobRotation;
         }
 
         void setPressed(int b) {
-            this->isPressed = (b == 1);
+            if (this->isPressed == false && b == 0) {
+                this->isToggled = !this->isToggled;
+            }
+            this->isPressed = (b == 0);
         }
 
         bool getPressed() {
             return this->isPressed;
+        }
+
+        bool getToggled() {
+            return this->isToggled;
+        }
+
+        String getToggledStr() {
+            if (this->isToggled) {
+                return "Y";
+            }
+            return "N";
         }
 };
 
