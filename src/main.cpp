@@ -6,6 +6,7 @@
 #include <atomic>
 #include <iostream>
 #include "knob.cpp"
+#include "notes.cpp"
 #include <ES_CAN.h>
 
 //Constants
@@ -16,7 +17,7 @@
   String currentNote;
   volatile uint8_t keyarray[7];
   SemaphoreHandle_t keyArrayMutex;
-  Knob knob3;
+  Notes notes;
   QueueHandle_t msgInQ;
   uint8_t RX_Message[8]={0};
   QueueHandle_t msgOutQ;
@@ -131,8 +132,7 @@ void scanKeysTask(void * pvParameters) {
       for(int j = 0; j < 4; j++) {
         if(bitRead(keyarray[i], j) == 0 && i<=2) {
           int position = (4* (i)) + (3 - j);
-          localCurrentStepSize = stepSizes[position];
-          currentNote = notes[position];
+          currentNote = notes.getNote(position);
           TX_Message[2] = position;
         }
       }
@@ -209,9 +209,8 @@ void decodeTask(void * pvParameters){
       __atomic_store_n(&currentStepSize, 0, __ATOMIC_RELAXED);
     }
     else if (temp[0] == 'P'){
-      uint32_t localstepsize = stepSizes[temp[2]];
-      int shift = temp[1] - 4;
-      __atomic_store_n(&currentStepSize, localstepsize << shift, __ATOMIC_RELAXED);
+      uint32_t localstepsize = notes.getStep(temp[1], temp[2]);
+      __atomic_store_n(&currentStepSize, localstepsize, __ATOMIC_RELAXED);
     }
     xSemaphoreTake(RXMutex, portMAX_DELAY);
     std::copy(temp,temp+8,RX_Message);
