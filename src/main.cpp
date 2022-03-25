@@ -13,8 +13,6 @@
 
 //Constants
   const uint32_t interval = 100; //Display update interval
-  const int32_t stepSizes[12] = {51076922,54112683,57330004,60740599,64352276,68178701,72231589,76528508,81077269,85899345, 91006452, 96418111};
-  const String notes[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
   volatile int32_t currentStepSize;
   String currentNote;
   volatile uint8_t keyarray[7];
