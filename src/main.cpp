@@ -19,6 +19,7 @@
   SemaphoreHandle_t keyArrayMutex;
   Knob volumeKnob(1, 0, 16, 8);
   Knob octaveKnob(1, 0, 8, 4);
+  // Knob faderKnob(2, 1, 100, 100);
   Knob senderKnob(0,0,0,0);
   Notes notes;
   std::vector<uint32_t> keysPressed;
@@ -27,6 +28,9 @@
   QueueHandle_t msgOutQ;
   SemaphoreHandle_t RXMutex;
   SemaphoreHandle_t CAN_TX_Semaphore;
+  // int32_t lastVolume;
+  // int32_t lastStepSize;
+
 //Pin definitions
   //Row select and enable
   const int RA0_PIN = D3;
@@ -105,10 +109,23 @@ void setOutMuxBit(const uint8_t bitIdx, const bool value) {
 
 void sampleISR() {
   static int32_t phaseAcc = 0;
-  phaseAcc += currentStepSize;
-  int32_t Vout = phaseAcc >> 24;
-  Vout = Vout >> (8 - volumeKnob.getRotation()/2);
+  int32_t Vout;
+  // if (currentStepSize == 0 && faderKnob.getToggled() && lastVolume > 0) { // when no key pressed
+  //   phaseAcc += lastStepSize;
+  //   Vout = phaseAcc >> 24;
+  //   Vout = Vout >> (8 - lastVolume/2);
+  //   lastVolume += faderKnob.getRotation();
+  //   Serial.write(lastVolume);
+  // }
+  // else {
+    phaseAcc += currentStepSize;
+    // lastStepSize = currentStepSize;
+    Vout = phaseAcc >> 24;
+    Vout = Vout >> (8 - volumeKnob.getRotation()/2);
+  //   lastVolume = Vout;
+  // }
   analogWrite(OUTR_PIN, Vout + 128);
+  
 }
 
 void scanKeysTask(void * pvParameters) {
@@ -139,7 +156,7 @@ void scanKeysTask(void * pvParameters) {
         }
       }
       
-      if (keysPressed.size() > 0) {
+      if (keysPressed.size() > 0) { // average stepsize to imitate multiple keys being pressed
         localCurrentStepSize = std::accumulate(keysPressed.begin(), keysPressed.end(), 0) / keysPressed.size();
       }
       else {
@@ -148,33 +165,33 @@ void scanKeysTask(void * pvParameters) {
 
       // knob turns
       if(i==3){
-        volumeKnob.setCurrBA(keyarray[3] & 0b11);
-        volumeKnob.updateRotation();
-
-        octaveKnob.setCurrBA((keyarray[3] >> 2) & 0b11);
-        octaveKnob.updateRotation();
+        volumeKnob.updateRotation(keyarray[3] & 0b11);
+        octaveKnob.updateRotation((keyarray[3] >> 2) & 0b11);
       }    
+      // if(i==4){
+      //   // faderKnob.updateRotation((keyarray[4] >> 2) & 0b11);
+      // }
 
       // knob pressed & joystick
       if (i==6) {
+        // faderKnob.setPressed((keyarray[6] >> 2) & 0b1);
         senderKnob.setPressed((keyarray[6] >> 3) & 0b1);
       }
+      
 
+      // if (senderKnob.getToggled()) {
+        TX_Message[1] = octaveKnob.getRotation();
+        if(localCurrentStepSize == 0)
+          {TX_Message[0] = 'R';}
+        else
+          {TX_Message[0] = 'P';}
 
-      TX_Message[1] = octaveKnob.getRotation();
-      if(localCurrentStepSize == 0)
-        {TX_Message[0] = 'R';}
-      else
-        {TX_Message[0] = 'P';}
+        xSemaphoreGive(keyArrayMutex);
 
-      xSemaphoreGive(keyArrayMutex);
-
-      //CAN_TX(0x123, TX_Message);
-      xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);
+        xQueueSend( msgOutQ, TX_Message, portMAX_DELAY);
+      // }
 
       __atomic_store_n(&currentStepSize, localCurrentStepSize, __ATOMIC_RELAXED);
-      //currentStepSize = 0;
-      //currentStepSize = positions.at(keyarray[i]);
     }
   }
 }
@@ -187,32 +204,44 @@ void displayUpdateTask(void * pvParameters){
   while(1) {
     vTaskDelayUntil( &xLastWakeTime, xFrequency );
   //Update display
-  u8g2.clearBuffer();         // clear the internal memory
-  u8g2.setFont(u8g2_font_ncenB08_tr); // choose a suitable font
+
+    u8g2.clearBuffer();         // clear the internal memory
+    u8g2.setFont(u8g2_font_ncenB08_tr); // choose a suitable font
 
   //while (CAN_CheckRXLevel())
     //CAN_RX(ID, RX_Message);
 
-  u8g2.setCursor(2,10);
-  u8g2.print("Piano!");
-  u8g2.setCursor(40,10);
-  u8g2.print(keyarray[0], HEX);
-  u8g2.print(keyarray[1], HEX);
-  u8g2.print(keyarray[2], HEX);
-  u8g2.setCursor(2,20);
-  u8g2.print("Sender");
-  u8g2.setCursor(2,30);
-  u8g2.print(senderKnob.getToggledStr());
-  u8g2.setCursor(35,20);
-  u8g2.setCursor(60,20);
-  u8g2.print("Volume");
-  u8g2.setCursor(60,30);
-  u8g2.print(volumeKnob.getRotation());
-  u8g2.setCursor(90,20);
-  u8g2.print("Octave");
-  u8g2.setCursor(90,30);
-  u8g2.print(octaveKnob.getRotation());
-  u8g2.sendBuffer();          // transfer internal memory to the display
+    u8g2.setCursor(2,10);
+    u8g2.print("Piano!");
+    u8g2.setCursor(40,10);
+    u8g2.print(keyarray[0], HEX);
+    u8g2.print(keyarray[1], HEX);
+    u8g2.print(keyarray[2], HEX);
+    u8g2.setCursor(2,20);
+    u8g2.print("Sndr");
+    u8g2.setCursor(2,30);
+    u8g2.print(senderKnob.getToggledStr());
+    // u8g2.setCursor(38,20);
+    // u8g2.print("Fade");
+    // u8g2.setCursor(30,20);
+    // u8g2.print(faderKnob.getToggledStr());
+    // u8g2.setCursor(30,30);
+    // u8g2.print(faderKnob.getRotation());
+    u8g2.setCursor(70,20);
+    u8g2.print("Vol");
+    u8g2.setCursor(70,30);
+    u8g2.print(volumeKnob.getRotation());
+    u8g2.setCursor(90,20);
+    u8g2.print("Oct");
+    u8g2.setCursor(90,30);
+    u8g2.print(octaveKnob.getRotation());
+
+    // xSemaphoreTake(RXMutex, portMAX_DELAY);
+    // u8g2.print((char) RX_Message[0]);
+    // u8g2.print(RX_Message[1]);
+    // u8g2.print(RX_Message[2]);
+    // xSemaphoreGive(RXMutex);
+    u8g2.sendBuffer();          // transfer internal memory to the display
 
   //Toggle LED
   digitalToggle(LED_BUILTIN);
@@ -244,12 +273,12 @@ void decodeTask(void * pvParameters){
 }
 
 void CAN_TX_Task (void * pvParameters) {
-uint8_t msgOut[8];
-while (1) {
-  xQueueReceive(msgOutQ, msgOut, portMAX_DELAY);
-  xSemaphoreTake(CAN_TX_Semaphore, portMAX_DELAY);
-  CAN_TX(0x123, msgOut);
-  }
+  uint8_t msgOut[8];
+  while (1) {
+    xQueueReceive(msgOutQ, msgOut, portMAX_DELAY);
+    xSemaphoreTake(CAN_TX_Semaphore, portMAX_DELAY);
+    CAN_TX(0x123, msgOut);
+    }
 }
 
 void CAN_TX_ISR (void) {
