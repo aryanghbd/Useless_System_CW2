@@ -1,11 +1,5 @@
 ## Classes
 
-
-# Notes
-
-
-
-
 # Knob
 This class handles knob rotations and presses. All variables are private.
 
@@ -59,9 +53,17 @@ Outputs: String
 Function Description: returns 'Y' if getToggled is true, else returns 'N'
 ```
 
+# Notes
+This class stores the step sizes and notes and returns them.
 ```
-Function Name:
-Inputs:
-Outputs:
-Function Description:
+Function Name: getStep
+Inputs: int octave, int note
+Outputs: int32_t
+Function Description: Returns stepsize corresponding to the octave and note
+```
+```
+Function Name: getNote
+Inputs: int
+Outputs: String
+Function Description: Returns note as a letter
 ```
